@@ -1,16 +1,18 @@
-import { UIRow, UIButton } from './libs/ui.js';
+import { UIDiv, UIButton, UIRow } from './libs/ui.js';
 
 function SidebarGeometryModifiers( editor, object ) {
 
-	var signals = editor.signals;
+	const strings = editor.strings;
 
-	var container = new UIRow().setPaddingLeft( '90px' );
+	const signals = editor.signals;
 
-	var geometry = object.geometry;
+	const container = new UIDiv().setPaddingLeft( '90px' );
+
+	const geometry = object.geometry;
 
 	// Compute Vertex Normals
 
-	var button = new UIButton( 'Compute Vertex Normals' );
+	const button = new UIButton( strings.getKey( 'sidebar/geometry/compute_vertex_normals' ) );
 	button.onClick( function () {
 
 		geometry.computeVertexNormals();
@@ -21,7 +23,10 @@ function SidebarGeometryModifiers( editor, object ) {
 
 	} );
 
-	container.add( button );
+	const row = new UIRow();
+	row.add( button );
+
+	container.add( row );
 
 	//
 

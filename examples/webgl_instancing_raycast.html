@@ -10,23 +10,34 @@
 		<link type="text/css" rel="stylesheet" href="main.css" />
 	</head>
 	<body>
+		<!-- Import maps polyfill -->
+		<!-- Remove this when import maps will be widely supported -->
+		<script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js"
+				}
+			}
+		</script>
+
 		<script type="module">
 			import * as THREE from "../build/three.module.js";
 
 			import Stats from "./jsm/libs/stats.module.js";
 			import { GUI } from "./jsm/libs/dat.gui.module.js";
 			import { OrbitControls } from "./jsm/controls/OrbitControls.js";
-
-			let camera, scene, renderer, stats;
+			let camera, scene, renderer, controls, stats;
 
 			let mesh;
 			const amount = parseInt(window.location.search.substr(1)) || 10;
 			const count = Math.pow(amount, 3);
-
 			const raycaster = new THREE.Raycaster();
 			const mouse = new THREE.Vector2(1, 1);
 
 			const color = new THREE.Color();
+			const white = new THREE.Color().setHex( 0xffffff );
 
 			init();
 			animate();
@@ -86,7 +97,14 @@
 				renderer.setSize(window.innerWidth, window.innerHeight);
 				document.body.appendChild(renderer.domElement);
 
+<<<<<<< HEAD
 				new OrbitControls(camera, renderer.domElement);
+=======
+				controls = new OrbitControls( camera, renderer.domElement );
+				controls.enableDamping = true;
+				controls.enableZoom = false;
+				controls.enablePan = false;
+>>>>>>> f3a832e637c98a404c64dae8174625958455e038
 
 				stats = new Stats();
 				document.body.appendChild(stats.dom);
@@ -112,6 +130,7 @@
 			function animate() {
 				requestAnimationFrame(animate);
 
+<<<<<<< HEAD
 				render();
 			}
 
@@ -120,18 +139,51 @@
 				raycaster.setFromCamera(mouse, camera);
 				// 计算物体和射线的焦点
 				const intersection = raycaster.intersectObject(mesh);
+=======
+				controls.update();
+>>>>>>> f3a832e637c98a404c64dae8174625958455e038
 
 				if (intersection.length > 0) {
 					const instanceId = intersection[0].instanceId;
 
+<<<<<<< HEAD
 					mesh.setColorAt(instanceId, color.setHex(Math.random() * 0xffffff));
 					mesh.instanceColor.needsUpdate = true;
 				}
 
 				renderer.render(scene, camera);
+=======
+				if ( intersection.length > 0 ) {
+
+					const instanceId = intersection[ 0 ].instanceId;
+
+					mesh.getColorAt( instanceId, color );
+
+					if ( color.equals( white ) ) {
+
+						mesh.setColorAt( instanceId, color.setHex( Math.random() * 0xffffff ) );
+
+						mesh.instanceColor.needsUpdate = true;
+
+					}
+
+				}
+
+				render();
+>>>>>>> f3a832e637c98a404c64dae8174625958455e038
 
 				stats.update();
 			}
+<<<<<<< HEAD
+=======
+
+			function render() {
+
+				renderer.render( scene, camera );
+
+			}
+
+>>>>>>> f3a832e637c98a404c64dae8174625958455e038
 		</script>
 	</body>
 </html>
