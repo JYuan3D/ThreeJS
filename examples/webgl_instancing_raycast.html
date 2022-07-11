@@ -97,15 +97,7 @@
 				renderer.setSize(window.innerWidth, window.innerHeight);
 				document.body.appendChild(renderer.domElement);
 
-<<<<<<< HEAD
 				new OrbitControls(camera, renderer.domElement);
-=======
-				controls = new OrbitControls( camera, renderer.domElement );
-				controls.enableDamping = true;
-				controls.enableZoom = false;
-				controls.enablePan = false;
->>>>>>> f3a832e637c98a404c64dae8174625958455e038
-
 				stats = new Stats();
 				document.body.appendChild(stats.dom);
 
@@ -130,7 +122,6 @@
 			function animate() {
 				requestAnimationFrame(animate);
 
-<<<<<<< HEAD
 				render();
 			}
 
@@ -139,51 +130,16 @@
 				raycaster.setFromCamera(mouse, camera);
 				// 计算物体和射线的焦点
 				const intersection = raycaster.intersectObject(mesh);
-=======
-				controls.update();
->>>>>>> f3a832e637c98a404c64dae8174625958455e038
-
 				if (intersection.length > 0) {
 					const instanceId = intersection[0].instanceId;
-
-<<<<<<< HEAD
 					mesh.setColorAt(instanceId, color.setHex(Math.random() * 0xffffff));
 					mesh.instanceColor.needsUpdate = true;
 				}
 
 				renderer.render(scene, camera);
-=======
-				if ( intersection.length > 0 ) {
-
-					const instanceId = intersection[ 0 ].instanceId;
-
-					mesh.getColorAt( instanceId, color );
-
-					if ( color.equals( white ) ) {
-
-						mesh.setColorAt( instanceId, color.setHex( Math.random() * 0xffffff ) );
-
-						mesh.instanceColor.needsUpdate = true;
-
-					}
-
-				}
-
-				render();
->>>>>>> f3a832e637c98a404c64dae8174625958455e038
 
 				stats.update();
 			}
-<<<<<<< HEAD
-=======
-
-			function render() {
-
-				renderer.render( scene, camera );
-
-			}
-
->>>>>>> f3a832e637c98a404c64dae8174625958455e038
 		</script>
 	</body>
 </html>
