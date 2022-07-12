@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - VSM Shadows example (直射灯)</title>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"
+		/>
+		<link type="text/css" rel="stylesheet" href="main.css" />
+	</head>
+	<body>
+		<div id="info">
+			<a href="https://threejs.org" target="_blank" rel="noopener">three.js</a>
+			- VSM Shadows example by
+			<a href="https://github.com/supereggbert">Paul Brunt</a>
+		</div>
+
+		<!-- Import maps polyfill -->
+		<!-- Remove this when import maps will be widely supported -->
+		<script
+			async
+			src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"
+		></script>
+
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../build/three.module.js"
+				}
+			}
+		</script>
+
+		<script type="module">
+			import * as THREE from "three";
+
+			import Stats from "./jsm/libs/stats.module.js";
+			import { GUI } from "./jsm/libs/lil-gui.module.min.js";
+
+			import { OrbitControls } from "./jsm/controls/OrbitControls.js";
+
+			let camera, scene, renderer, clock, stats;
+			let dirLight;
+			let torusKnot, dirGroup;
+
+			init();
+			animate();
+
+			function init() {
+				initScene();
+				initMisc();
+
+				// Init gui
+				const gui = new GUI();
+
+				const config = {
+					dirlightRadius: 4,
+					dirlightSamples: 8,
+				};
+
+				const dirlightFolder = gui.addFolder("Directional Light");
+				dirlightFolder
+					.add(config, "dirlightRadius")
+					.name("radius")
+					.min(0)
+					.max(25)
+					.onChange(function (value) {
+						dirLight.shadow.radius = value;
+					});
+
+				dirlightFolder
+					.add(config, "dirlightSamples", 1, 25, 1)
+					.name("samples")
+					.onChange(function (value) {
+						dirLight.shadow.blurSamples = value;
+					});
+				dirlightFolder.open();
+
+				const shadowConfig = {
+					camera: {
+						top: 1000,
+						bottom: -1000,
+						right: 1000,
+						left: -1000,
+					},
+				};
+				const shadowFolder = gui.addFolder("Directional Shadow");
+				shadowFolder
+					.add(shadowConfig.camera, "top", -1000, 1000, 1)
+					.name("camera.top")
+					.onChange(function (value) {
+						dirLight.shadow.camera.top = value;
+						dirLight.shadow.camera.bottom = -value;
+						dirLight.shadow.camera.left = -value;
+						dirLight.shadow.camera.right = value;
+						dirLight.shadow.camera.updateProjectionMatrix();
+					});
+				// shadowFolder
+				// 	.add(shadowConfig.camera, "bottom", -1000, 1000, 1)
+				// 	.name("camera.bottom")
+				// 	.onChange(function (value) {
+				// 		dirLight.shadow.camera.bottom = value;
+				// 	});
+				// shadowFolder
+				// 	.add(shadowConfig.camera, "left", -1000, 1000, 1)
+				// 	.name("camera.left")
+				// 	.onChange(function (value) {
+				// 		dirLight.shadow.camera.left = value;
+				// 	});
+				// shadowFolder
+				// 	.add(shadowConfig.camera, "right", -1000, 1000, 1)
+				// 	.name("camera.right")
+				// 	.onChange(function (value) {
+				// 		dirLight.shadow.camera.right = value;
+				// 		dirLight.shadow.camera.updateProjectionMatrix();
+				// 		// console.log("[dirLight.shadow.camera]", dirLight.shadow.camera);
+				// 	});
+
+				document.body.appendChild(renderer.domElement);
+				window.addEventListener("resize", onWindowResize);
+			}
+
+			function initScene() {
+				camera = new THREE.PerspectiveCamera(
+					45,
+					window.innerWidth / window.innerHeight,
+					1,
+					1000
+				);
+				camera.position.set(0, 10, 30);
+
+				scene = new THREE.Scene();
+				scene.background = new THREE.Color(0x222244);
+				// scene.fog = new THREE.Fog(0x222244, 50, 100);
+
+				// Lights
+
+				scene.add(new THREE.AmbientLight(0x444444));
+
+				dirLight = new THREE.DirectionalLight(0x8888ff, 1);
+				dirLight.position.set(30, 120, 170);
+				dirLight.castShadow = true;
+				dirLight.shadow.camera.near = 0.1;
+				dirLight.shadow.camera.far = 500;
+				dirLight.shadow.camera.right = 100;
+				dirLight.shadow.camera.left = -100;
+				dirLight.shadow.camera.top = 100;
+				dirLight.shadow.camera.bottom = -100;
+				dirLight.shadow.mapSize.width = 1024;
+				dirLight.shadow.mapSize.height = 1024;
+				dirLight.shadow.radius = 4;
+				dirLight.shadow.blurSamples = 8;
+				dirLight.shadow.bias = -0.0005;
+
+				console.log("[dirLight.shadow]", dirLight.shadow);
+
+				dirGroup = new THREE.Group();
+				dirGroup.add(dirLight);
+				scene.add(dirGroup);
+				scene.add(new THREE.DirectionalLightHelper(dirLight, 5));
+
+				scene.add(new THREE.CameraHelper(dirLight.shadow.camera));
+
+				// Geometry
+
+				const geometry = new THREE.TorusKnotGeometry(25, 8, 75, 20);
+				const material = new THREE.MeshPhongMaterial({
+					color: 0x999999,
+					shininess: 0,
+					specular: 0x222222,
+				});
+
+				torusKnot = new THREE.Mesh(geometry, material);
+				torusKnot.scale.multiplyScalar(1 / 18);
+				torusKnot.position.y = 3;
+				torusKnot.castShadow = true;
+				torusKnot.receiveShadow = true;
+				scene.add(torusKnot);
+
+				const cylinderGeometry = new THREE.CylinderGeometry(0.75, 0.75, 7, 32);
+
+				const pillar1 = new THREE.Mesh(cylinderGeometry, material);
+				pillar1.position.set(8, 3.5, 8);
+				pillar1.castShadow = true;
+				pillar1.receiveShadow = true;
+
+				const pillar2 = pillar1.clone();
+				pillar2.position.set(8, 3.5, -8);
+				const pillar3 = pillar1.clone();
+				pillar3.position.set(-8, 3.5, 8);
+				const pillar4 = pillar1.clone();
+				pillar4.position.set(-8, 3.5, -8);
+
+				scene.add(pillar1);
+				scene.add(pillar2);
+				scene.add(pillar3);
+				scene.add(pillar4);
+
+				const planeGeometry = new THREE.PlaneGeometry(200, 200);
+				const planeMaterial = new THREE.MeshPhongMaterial({
+					color: 0x999999,
+					shininess: 0,
+					specular: 0x111111,
+				});
+
+				const ground = new THREE.Mesh(planeGeometry, planeMaterial);
+				ground.rotation.x = -Math.PI / 2;
+				ground.scale.multiplyScalar(3);
+				ground.castShadow = true;
+				ground.receiveShadow = true;
+				scene.add(ground);
+
+				let geometry2 = new THREE.TorusKnotGeometry(25, 8, 75, 20);
+				let material2 = new THREE.MeshStandardMaterial({
+					color: 0xff0000,
+					metalness: 0.9,
+					roughness: 0.1,
+				});
+				let cube = new THREE.Mesh(geometry2, material2);
+				cube.position.set(0, 50, -50);
+				cube.castShadow = true;
+				cube.receiveShadow = true;
+				scene.add(cube);
+			}
+
+			function initMisc() {
+				renderer = new THREE.WebGLRenderer({ antialias: true });
+				renderer.setPixelRatio(window.devicePixelRatio);
+				renderer.setSize(window.innerWidth, window.innerHeight);
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.type = THREE.VSMShadowMap;
+
+				// Mouse control
+				const controls = new OrbitControls(camera, renderer.domElement);
+				controls.target.set(0, 2, 0);
+				controls.update();
+
+				clock = new THREE.Clock();
+
+				stats = new Stats();
+				document.body.appendChild(stats.dom);
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+
+			function animate(time) {
+				requestAnimationFrame(animate);
+
+				const delta = clock.getDelta();
+
+				torusKnot.rotation.x += 0.25 * delta;
+				torusKnot.rotation.y += 0.5 * delta;
+				torusKnot.rotation.z += 1 * delta;
+
+				// dirGroup.rotation.y += 0.7 * delta;
+				// dirLight.position.z = 17 + Math.sin(time * 0.001) * 5;
+
+				renderer.render(scene, camera);
+
+				stats.update();
+			}
+		</script>
+	</body>
+</html>

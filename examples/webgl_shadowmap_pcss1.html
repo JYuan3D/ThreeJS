@@ -141,10 +141,10 @@
 			import * as THREE from "three";
 
 			import Stats from "./jsm/libs/stats.module.js";
-
+			import { GUI } from "./jsm/libs/lil-gui.module.min.js";
 			import { OrbitControls } from "./jsm/controls/OrbitControls.js";
 
-			let stats;
+			let stats, gui;
 			let camera, scene, renderer;
 
 			let group;
@@ -152,15 +152,8 @@
 			init();
 			animate();
 
-			function init() {
-				const container = document.createElement("div");
-				document.body.appendChild(container);
-
-				// scene
-
-				scene = new THREE.Scene();
-				scene.fog = new THREE.Fog(0xcce0ff, 5, 100);
-
+			function addCamera(gui) {
+				const cameraFolder = gui.addFolder("camera");
 				// camera
 
 				camera = new THREE.PerspectiveCamera(
@@ -174,12 +167,33 @@
 				// due to lack of precision when interpolating values over really large triangles.
 				// It reproduced on at least NVIDIA GTX 1080 and GTX 1050 Ti GPUs when the ground plane was not
 				// subdivided into segments.
-				camera.position.x = 7;
-				camera.position.y = 13;
-				camera.position.z = 7;
+
+				// 我们使用这个特定的摄像机位置来暴露一个错误，这个错误可能是由于在非常大的三角形上插值时缺乏精度而导致的。
+				// 当接地层未细分为段时，它至少在NVIDIA GTX 1080和GTX 1050 Ti GPU上再现。
+				camera.position.x = 25.235267213614673;
+				camera.position.y = 40.352900820421965;
+				camera.position.z = 25.235267213614694;
 
 				scene.add(camera);
 
+				const cameraFolderParams = {
+					x: 7,
+				};
+
+				cameraFolder.add(camera.position, "x", -100, 100, 0.1);
+				cameraFolder.add(camera.position, "y", -100, 100, 0.1);
+				cameraFolder.add(camera.position, "z", -100, 100, 0.1);
+				cameraFolder.add(
+					{
+						get_info: function () {
+							console.log("clicked", camera.position);
+						},
+					},
+					"get_info"
+				);
+			}
+
+			function addLight() {
 				// lights
 
 				scene.add(new THREE.AmbientLight(0x666666));
@@ -196,15 +210,33 @@
 
 				// scene.add( new DirectionalLightHelper( light ) );
 				scene.add(new THREE.CameraHelper(light.shadow.camera));
+			}
+
+			function init() {
+				gui = new GUI();
+
+				const container = document.createElement("div");
+				document.body.appendChild(container);
+
+				// scene
+
+				scene = new THREE.Scene();
+				// scene.fog = new THREE.Fog(0xcce0ff, 5, 100);
+
+				// camera
+				addCamera(gui);
+
+				// lights
+        addLight()
 
 				// group
 
 				group = new THREE.Group();
 				scene.add(group);
 
-				const geometry = new THREE.SphereGeometry(0.3, 20, 20);
+				const geometry = new THREE.SphereGeometry(0.6, 20, 20);
 
-				for (let i = 0; i < 20; i++) {
+				for (let i = 0; i < 2; i++) {
 					const material = new THREE.MeshPhongMaterial({
 						color: Math.random() * 0xffffff,
 					});
@@ -225,6 +257,7 @@
 				const groundMaterial = new THREE.MeshPhongMaterial({
 					color: 0x404040,
 					specular: 0x111111,
+					// side: THREE.DoubleSide
 				});
 
 				const ground = new THREE.Mesh(
@@ -248,6 +281,7 @@
 
 				// overwrite shadowmap code
 
+				// WebGL着色器库的着色器片段
 				let shader = THREE.ShaderChunk.shadowmap_pars_fragment;
 
 				shader = shader.replace(
@@ -268,7 +302,7 @@
 				renderer = new THREE.WebGLRenderer({ antialias: true });
 				renderer.setPixelRatio(window.devicePixelRatio);
 				renderer.setSize(window.innerWidth, window.innerHeight);
-				renderer.setClearColor(scene.fog.color);
+				renderer.setClearColor(0xcce0ff);
 
 				container.appendChild(renderer.domElement);
 
@@ -277,9 +311,9 @@
 
 				// controls
 				const controls = new OrbitControls(camera, renderer.domElement);
-				controls.maxPolarAngle = Math.PI * 0.5;
-				controls.minDistance = 10;
-				controls.maxDistance = 75;
+				// controls.maxPolarAngle = Math.PI * 0.5;
+				// controls.minDistance = 10;
+				// controls.maxDistance = 75;
 				controls.target.set(0, 2.5, 0);
 				controls.update();
 
