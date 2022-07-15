@@ -41,7 +41,7 @@
 
 			import Stats from "./jsm/libs/stats.module.js";
 
-			import { FirstPersonControls } from "./jsm/controls/FirstPersonControls.js";
+			import { OrbitControls } from "./jsm/controls/OrbitControls.js";
 			import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
 			import { FontLoader } from "./jsm/loaders/FontLoader.js";
 			import { TextGeometry } from "./jsm/geometries/TextGeometry.js";
@@ -58,7 +58,7 @@
 			let container, stats;
 
 			const NEAR = 10,
-				FAR = 3000;
+				FAR = 3000 * 10;
 
 			let mixer;
 
@@ -71,15 +71,7 @@
 
 			let showHUD = false;
 
-			init();
-			animate();
-
-			function init() {
-				container = document.createElement("div");
-				document.body.appendChild(container);
-
-				// CAMERA
-
+			function addCamera() {
 				camera = new THREE.PerspectiveCamera(
 					23,
 					SCREEN_WIDTH / SCREEN_HEIGHT,
@@ -87,15 +79,15 @@
 					FAR
 				);
 				camera.position.set(700, 50, 1900);
+			}
 
-				// SCENE
-
+			function addScene() {
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color(0x59472b);
 				scene.fog = new THREE.Fog(0x59472b, 1000, FAR);
+			}
 
-				// LIGHTS
-
+			function addLight() {
 				const ambient = new THREE.AmbientLight(0x444444);
 				scene.add(ambient);
 
@@ -112,12 +104,9 @@
 				light.shadow.mapSize.height = SHADOW_MAP_HEIGHT;
 
 				scene.add(light);
+			}
 
-				createHUD();
-				createScene();
-
-				// RENDERER
-
+			function addRenderer() {
 				renderer = new THREE.WebGLRenderer({ antialias: true });
 				renderer.setPixelRatio(window.devicePixelRatio);
 				renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -126,28 +115,47 @@
 				renderer.outputEncoding = THREE.sRGBEncoding;
 				renderer.autoClear = false;
 
-				//
-
 				renderer.shadowMap.enabled = true;
 				renderer.shadowMap.type = THREE.PCFShadowMap;
+			}
+
+			function addControls() {
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.update();
+			}
+
+			function addStats() {
+				stats = new Stats();
+				container.appendChild(stats.dom);
+			}
+
+			init();
+			animate();
+
+			function init() {
+				container = document.createElement("div");
+				document.body.appendChild(container);
+
+				// CAMERA
+				addCamera();
+
+				// SCENE
+				addScene();
+
+				// LIGHTS
+				addLight();
+
+				createHUD();
+				createScene();
+
+				// RENDERER
+				addRenderer();
 
 				// CONTROLS
-
-				controls = new FirstPersonControls(camera, renderer.domElement);
-
-				controls.lookSpeed = 0.0125;
-				controls.movementSpeed = 500;
-				controls.noFly = false;
-				controls.lookVertical = true;
-
-				controls.lookAt(scene.position);
+				addControls();
 
 				// STATS
-
-				stats = new Stats();
-				//container.appendChild( stats.dom );
-
-				//
+				addStats();
 
 				window.addEventListener("resize", onWindowResize);
 				window.addEventListener("keydown", onKeyDown);
@@ -161,8 +169,6 @@
 				camera.updateProjectionMatrix();
 
 				renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
-
-				controls.handleResize();
 			}
 
 			function onKeyDown(event) {
@@ -174,6 +180,7 @@
 			}
 
 			function createHUD() {
+				// 平视显示器（head up display）简称HUD
 				lightShadowMapViewer = new ShadowMapViewer(light);
 				lightShadowMapViewer.position.x = 10;
 				lightShadowMapViewer.position.y =
@@ -183,12 +190,7 @@
 				lightShadowMapViewer.update();
 			}
 
-			function createScene() {
-				// GROUND
-
-				const geometry = new THREE.PlaneGeometry(100, 100);
-				const planeMaterial = new THREE.MeshPhongMaterial({ color: 0xffb851 });
-
+			function addGround(geometry, planeMaterial) {
 				const ground = new THREE.Mesh(geometry, planeMaterial);
 
 				ground.position.set(0, FLOOR, 0);
@@ -199,9 +201,9 @@
 				ground.receiveShadow = true;
 
 				scene.add(ground);
+			}
 
-				// TEXT
-
+			function addText() {
 				const loader = new FontLoader();
 				loader.load("fonts/helvetiker_bold.typeface.json", function (font) {
 					const textGeo = new TextGeometry("THREE.JS", {
@@ -234,9 +236,9 @@
 
 					scene.add(mesh);
 				});
+			}
 
-				// CUBES
-
+			function addCubes(planeMaterial) {
 				const cubes1 = new THREE.Mesh(
 					new THREE.BoxGeometry(1500, 220, 150),
 					planeMaterial
@@ -262,55 +264,78 @@
 				cubes2.receiveShadow = true;
 
 				scene.add(cubes2);
+			}
+
+			function addMorph(mesh, clip, speed, duration, x, y, z, fudgeColor) {
+				mesh = mesh.clone();
+				mesh.material = mesh.material.clone();
+
+				if (fudgeColor) {
+					mesh.material.color.offsetHSL(
+						0,
+						Math.random() * 0.5 - 0.25,
+						Math.random() * 0.5 - 0.25
+					);
+				}
+
+				mesh.speed = speed;
+
+				mixer
+					.clipAction(clip, mesh) // 返回所传入的剪辑参数的AnimationAction, 根对象参数可选，默认值为混合器的默认根对象
+					.setDuration(duration) // 设置单此循环的持续时间(通过调整时间比例（timeScale）以及停用所有的变形)
+					// to shift the playback out of phase:
+          // 要使播放偏离相位，请执行以下操作：
+					.startAt(-duration * Math.random()) // 定义延时启动的事件 (通常会传入AnimationMixer.time + deltaTimeInSeconds)
+					.play();
+
+				mesh.position.set(x, y, z);
+				mesh.rotation.y = Math.PI / 2;
+
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
+
+				scene.add(mesh);
+
+				morphs.push(mesh);
+			}
+
+			function createScene() {
+				// GROUND
+
+				const geometry = new THREE.PlaneGeometry(100, 100);
+				const planeMaterial = new THREE.MeshPhongMaterial({ color: 0xffb851 });
+
+				addGround(geometry, planeMaterial);
+
+				// TEXT
+				addText();
+
+				// CUBES
+				addCubes(planeMaterial);
 
 				// MORPHS
-
+        // AnimationMixer: 动画混合器是用于场景中特定对象的动画的播放器。当场景中的多个对象独立动画时，每个对象都可以使用同一个动画混合器。
 				mixer = new THREE.AnimationMixer(scene);
-
-				function addMorph(mesh, clip, speed, duration, x, y, z, fudgeColor) {
-					mesh = mesh.clone();
-					mesh.material = mesh.material.clone();
-
-					if (fudgeColor) {
-						mesh.material.color.offsetHSL(
-							0,
-							Math.random() * 0.5 - 0.25,
-							Math.random() * 0.5 - 0.25
-						);
-					}
-
-					mesh.speed = speed;
-
-					mixer
-						.clipAction(clip, mesh)
-						.setDuration(duration)
-						// to shift the playback out of phase:
-						.startAt(-duration * Math.random())
-						.play();
-
-					mesh.position.set(x, y, z);
-					mesh.rotation.y = Math.PI / 2;
-
-					mesh.castShadow = true;
-					mesh.receiveShadow = true;
-
-					scene.add(mesh);
-
-					morphs.push(mesh);
-				}
 
 				const gltfloader = new GLTFLoader();
 
 				gltfloader.load("models/gltf/Horse.glb", function (gltf) {
 					const mesh = gltf.scene.children[0];
-
 					const clip = gltf.animations[0];
 
+					// console.log("[gltf]", gltf);
+					// console.log("[mesh]", mesh);
+					// console.log("[clip]", clip);
+
+					/**
+					 * AnimationClip
+					 * 动画剪辑是一个可重用的关键帧轨道集，它代表动画
+					 */
 					addMorph(
 						mesh,
 						clip,
-						550,
-						1,
+						550 * 3,
+						0.5,
 						100 - Math.random() * 1000,
 						FLOOR,
 						300,
@@ -436,8 +461,6 @@
 						morph.position.x = -1000 - Math.random() * 500;
 					}
 				}
-
-				controls.update(delta);
 
 				renderer.clear();
 				renderer.render(scene, camera);

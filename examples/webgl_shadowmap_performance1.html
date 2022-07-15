@@ -17,8 +17,7 @@
 			<a href="https://mirada.com/" target="_blank" rel="noopener">mirada</a>
 			from <a href="http://www.ro.me" target="_blank" rel="noopener">rome</a
 			><br />
-			move camera with WASD / RF + mouse<br />
-			t: toggle HUD
+			move camera with WASD / RF + mouse
 		</div>
 
 		<!-- Import maps polyfill -->
@@ -41,11 +40,11 @@
 
 			import Stats from "./jsm/libs/stats.module.js";
 
+			import { OrbitControls } from "./jsm/controls/OrbitControls.js";
 			import { FirstPersonControls } from "./jsm/controls/FirstPersonControls.js";
 			import { GLTFLoader } from "./jsm/loaders/GLTFLoader.js";
 			import { FontLoader } from "./jsm/loaders/FontLoader.js";
 			import { TextGeometry } from "./jsm/geometries/TextGeometry.js";
-			import { ShadowMapViewer } from "./jsm/utils/ShadowMapViewer.js";
 
 			const SHADOW_MAP_WIDTH = 2048,
 				SHADOW_MAP_HEIGHT = 1024;
@@ -54,32 +53,25 @@
 			let SCREEN_HEIGHT = window.innerHeight;
 			const FLOOR = -250;
 
+			const ANIMATION_GROUPS = 25;
+
 			let camera, controls, scene, renderer;
-			let container, stats;
+			let stats;
 
-			const NEAR = 10,
-				FAR = 3000;
+			const NEAR = 5,
+				FAR = 3000 * 10;
 
-			let mixer;
+			let morph, mixer;
 
-			const morphs = [];
-
-			let light;
-			let lightShadowMapViewer;
+			const morphs = [],
+				animGroups = [];
 
 			const clock = new THREE.Clock();
-
-			let showHUD = false;
 
 			init();
 			animate();
 
-			function init() {
-				container = document.createElement("div");
-				document.body.appendChild(container);
-
-				// CAMERA
-
+			function addCamera() {
 				camera = new THREE.PerspectiveCamera(
 					23,
 					SCREEN_WIDTH / SCREEN_HEIGHT,
@@ -87,19 +79,32 @@
 					FAR
 				);
 				camera.position.set(700, 50, 1900);
+			}
 
-				// SCENE
-
+			function addScene() {
 				scene = new THREE.Scene();
 				scene.background = new THREE.Color(0x59472b);
 				scene.fog = new THREE.Fog(0x59472b, 1000, FAR);
+			}
 
-				// LIGHTS
+			function addRenderer(container) {
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio(window.devicePixelRatio);
+				renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
+				container.appendChild(renderer.domElement);
 
+				renderer.outputEncoding = THREE.sRGBEncoding;
+				renderer.autoClear = false;
+
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+			}
+
+			function addLight() {
 				const ambient = new THREE.AmbientLight(0x444444);
 				scene.add(ambient);
 
-				light = new THREE.SpotLight(0xffffff, 1, 0, Math.PI / 5, 0.3);
+				const light = new THREE.SpotLight(0xffffff, 1, 0, Math.PI / 5, 0.3);
 				light.position.set(0, 1500, 1000);
 				light.target.position.set(0, 0, 0);
 
@@ -112,45 +117,43 @@
 				light.shadow.mapSize.height = SHADOW_MAP_HEIGHT;
 
 				scene.add(light);
+			}
 
-				createHUD();
+			function addControls() {
+				controls = new OrbitControls(camera, renderer.domElement);
+				controls.update();
+			}
+
+			function addStats(container) {
+				stats = new Stats();
+				container.appendChild(stats.dom);
+			}
+
+			function init() {
+				const container = document.createElement("div");
+				document.body.appendChild(container);
+
+				// CAMERA
+				addCamera();
+
+				// SCENE
+				addScene();
+
+				// LIGHTS
+				addLight();
+
 				createScene();
 
 				// RENDERER
-
-				renderer = new THREE.WebGLRenderer({ antialias: true });
-				renderer.setPixelRatio(window.devicePixelRatio);
-				renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
-				container.appendChild(renderer.domElement);
-
-				renderer.outputEncoding = THREE.sRGBEncoding;
-				renderer.autoClear = false;
-
-				//
-
-				renderer.shadowMap.enabled = true;
-				renderer.shadowMap.type = THREE.PCFShadowMap;
+				addRenderer(container);
 
 				// CONTROLS
-
-				controls = new FirstPersonControls(camera, renderer.domElement);
-
-				controls.lookSpeed = 0.0125;
-				controls.movementSpeed = 500;
-				controls.noFly = false;
-				controls.lookVertical = true;
-
-				controls.lookAt(scene.position);
+				addControls();
 
 				// STATS
-
-				stats = new Stats();
-				//container.appendChild( stats.dom );
-
-				//
+				addStats(container);
 
 				window.addEventListener("resize", onWindowResize);
-				window.addEventListener("keydown", onKeyDown);
 			}
 
 			function onWindowResize() {
@@ -161,34 +164,9 @@
 				camera.updateProjectionMatrix();
 
 				renderer.setSize(SCREEN_WIDTH, SCREEN_HEIGHT);
-
-				controls.handleResize();
 			}
 
-			function onKeyDown(event) {
-				switch (event.keyCode) {
-					case 84 /*t*/:
-						showHUD = !showHUD;
-						break;
-				}
-			}
-
-			function createHUD() {
-				lightShadowMapViewer = new ShadowMapViewer(light);
-				lightShadowMapViewer.position.x = 10;
-				lightShadowMapViewer.position.y =
-					SCREEN_HEIGHT - SHADOW_MAP_HEIGHT / 4 - 10;
-				lightShadowMapViewer.size.width = SHADOW_MAP_WIDTH / 4;
-				lightShadowMapViewer.size.height = SHADOW_MAP_HEIGHT / 4;
-				lightShadowMapViewer.update();
-			}
-
-			function createScene() {
-				// GROUND
-
-				const geometry = new THREE.PlaneGeometry(100, 100);
-				const planeMaterial = new THREE.MeshPhongMaterial({ color: 0xffb851 });
-
+			function addGround(geometry, planeMaterial) {
 				const ground = new THREE.Mesh(geometry, planeMaterial);
 
 				ground.position.set(0, FLOOR, 0);
@@ -199,9 +177,9 @@
 				ground.receiveShadow = true;
 
 				scene.add(ground);
+			}
 
-				// TEXT
-
+			function addText() {
 				const loader = new FontLoader();
 				loader.load("fonts/helvetiker_bold.typeface.json", function (font) {
 					const textGeo = new TextGeometry("THREE.JS", {
@@ -234,9 +212,9 @@
 
 					scene.add(mesh);
 				});
+			}
 
-				// CUBES
-
+			function addCubes(planeMaterial) {
 				const cubes1 = new THREE.Mesh(
 					new THREE.BoxGeometry(1500, 220, 150),
 					planeMaterial
@@ -262,173 +240,133 @@
 				cubes2.receiveShadow = true;
 
 				scene.add(cubes2);
+			}
 
-				// MORPHS
+			function addMorph(
+				mesh,
+				clip,
+				speed,
+				duration,
+				x,
+				y,
+				z,
+				fudgeColor, // 前景
+				massOptimization // 质量优化 true
+			) {
+				mesh = mesh.clone();
+				mesh.material = mesh.material.clone();
 
-				mixer = new THREE.AnimationMixer(scene);
+				if (fudgeColor) {
+					mesh.material.color.offsetHSL(
+						0,
+						Math.random() * 0.5 - 0.25,
+						Math.random() * 0.5 - 0.25
+					);
+				}
 
-				function addMorph(mesh, clip, speed, duration, x, y, z, fudgeColor) {
-					mesh = mesh.clone();
-					mesh.material = mesh.material.clone();
+				mesh.speed = speed;
 
-					if (fudgeColor) {
-						mesh.material.color.offsetHSL(
-							0,
-							Math.random() * 0.5 - 0.25,
-							Math.random() * 0.5 - 0.25
-						);
+				if (massOptimization) {
+					const index = Math.floor(Math.random() * ANIMATION_GROUPS),
+						animGroup = animGroups[index]; // AnimationObjectGroup 接收共享动画状态的一组对象。
+
+					animGroup.add(mesh);
+
+          // 返回传入剪辑的已有AnimationAction, 根对象参数可选，默认值为混合器的默认根对象。
+					if (!mixer.existingAction(clip, animGroup)) { // AnimationAction
+						const randomness = 0.6 * Math.random() - 0.3;
+						const phase = (index + randomness) / ANIMATION_GROUPS;
+
+            // console.log('[phase]', phase)
+
+						mixer
+							.clipAction(clip, animGroup)
+							.setDuration(duration)
+							.startAt(-duration * phase)
+							.play();
 					}
-
-					mesh.speed = speed;
-
+				} else {
 					mixer
 						.clipAction(clip, mesh)
 						.setDuration(duration)
-						// to shift the playback out of phase:
 						.startAt(-duration * Math.random())
 						.play();
-
-					mesh.position.set(x, y, z);
-					mesh.rotation.y = Math.PI / 2;
-
-					mesh.castShadow = true;
-					mesh.receiveShadow = true;
-
-					scene.add(mesh);
-
-					morphs.push(mesh);
 				}
 
-				const gltfloader = new GLTFLoader();
+        // Math.random() [0, 1]
 
-				gltfloader.load("models/gltf/Horse.glb", function (gltf) {
-					const mesh = gltf.scene.children[0];
+				mesh.position.set(x, y, z);
+				mesh.rotation.y = Math.PI / 2;
 
-					const clip = gltf.animations[0];
+				mesh.castShadow = true;
+				mesh.receiveShadow = true;
 
-					addMorph(
-						mesh,
-						clip,
-						550,
-						1,
-						100 - Math.random() * 1000,
-						FLOOR,
-						300,
-						true
-					);
-					addMorph(
-						mesh,
-						clip,
-						550,
-						1,
-						100 - Math.random() * 1000,
-						FLOOR,
-						450,
-						true
-					);
-					addMorph(
-						mesh,
-						clip,
-						550,
-						1,
-						100 - Math.random() * 1000,
-						FLOOR,
-						600,
-						true
-					);
+				scene.add(mesh);
 
-					addMorph(
-						mesh,
-						clip,
-						550,
-						1,
-						100 - Math.random() * 1000,
-						FLOOR,
-						-300,
-						true
-					);
-					addMorph(
-						mesh,
-						clip,
-						550,
-						1,
-						100 - Math.random() * 1000,
-						FLOOR,
-						-450,
-						true
-					);
-					addMorph(
-						mesh,
-						clip,
-						550,
-						1,
-						100 - Math.random() * 1000,
-						FLOOR,
-						-600,
-						true
-					);
-				});
+				morphs.push(mesh);
+			}
 
-				gltfloader.load("models/gltf/Flamingo.glb", function (gltf) {
+			function createScene() {
+				// GROUND
+
+				const geometry = new THREE.PlaneGeometry(100, 100);
+				const planeMaterial = new THREE.MeshPhongMaterial({ color: 0xffb851 });
+
+				addGround(geometry, planeMaterial);
+
+				// TEXT
+				addText();
+
+				// CUBES
+				addCubes(planeMaterial);
+
+				mixer = new THREE.AnimationMixer(scene);
+
+				for (let i = 0; i !== ANIMATION_GROUPS; ++i) {
+					const group = new THREE.AnimationObjectGroup(); // 接收共享动画状态的一组对象。
+					animGroups.push(group);
+				}
+
+				// MORPHS 变形
+
+				const gltfLoader = new GLTFLoader();
+				gltfLoader.load("models/gltf/Horse.glb", function (gltf) {
 					const mesh = gltf.scene.children[0];
 					const clip = gltf.animations[0];
 
-					addMorph(
-						mesh,
-						clip,
-						500,
-						1,
-						500 - Math.random() * 500,
-						FLOOR + 350,
-						40
-					);
-				});
-
-				gltfloader.load("models/gltf/Stork.glb", function (gltf) {
-					const mesh = gltf.scene.children[0];
-					const clip = gltf.animations[0];
-
-					addMorph(
-						mesh,
-						clip,
-						350,
-						1,
-						500 - Math.random() * 500,
-						FLOOR + 350,
-						340
-					);
-				});
-
-				gltfloader.load("models/gltf/Parrot.glb", function (gltf) {
-					const mesh = gltf.scene.children[0];
-					const clip = gltf.animations[0];
-
-					addMorph(
-						mesh,
-						clip,
-						450,
-						0.5,
-						500 - Math.random() * 500,
-						FLOOR + 300,
-						700
-					);
+					for (let i = -600; i < 601; i += 2) {
+						addMorph(
+							mesh,
+							clip,
+							550,
+							1,
+							100 - Math.random() * 3000,
+							FLOOR,
+							i,
+							true,
+							true
+						);
+					}
 				});
 			}
+
+			//
 
 			function animate() {
 				requestAnimationFrame(animate);
 
+				stats.begin();
 				render();
-				stats.update();
+				stats.end();
 			}
 
 			function render() {
 				const delta = clock.getDelta();
 
-				mixer.update(delta);
+				if (mixer) mixer.update(delta);
 
 				for (let i = 0; i < morphs.length; i++) {
-					const morph = morphs[i];
+					morph = morphs[i];
 
 					morph.position.x += morph.speed * delta;
 
@@ -437,16 +375,8 @@
 					}
 				}
 
-				controls.update(delta);
-
 				renderer.clear();
 				renderer.render(scene, camera);
-
-				// Render debug HUD with shadow map
-
-				if (showHUD) {
-					lightShadowMapViewer.render(renderer);
-				}
 			}
 		</script>
 	</body>
